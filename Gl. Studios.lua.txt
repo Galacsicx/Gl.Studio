@@ -1,0 +1,35 @@
+game.StarterGui:SetCore("SendNotification",{
+    Title = "Gl. Studios";
+    Text = "Press E";
+})
+
+local Plr = game:GetService("Players").LocalPlayer
+local Mouse = Plr:GetMouse()
+local UIS = game:GetService("UserInputService")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = Plr:WaitForChild("PlayerGui")
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 130, 0, 30)
+TitleLabel.Position = UDim2.new(0, 30, 0.4, -35)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Gl. Studios"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 18
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Parent = ScreenGui
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        local character = Plr.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if rootPart and Mouse.Hit then
+            rootPart.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 3, 0))
+        end
+    end
+end)
