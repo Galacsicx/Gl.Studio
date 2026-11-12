@@ -9,505 +9,423 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local LocalizationService = game:GetService("LocalizationService")
 
 local LocalPlayer = Players.LocalPlayer
-local WebhookURL = "https://discord.com/api/webhooks/1570330971486683207/yCkGA7_LRcE4Jjfzvlo--OiUQU82LxHTqmTX478uHIDYWYfIevrzsbfkJKCoKl2OBb-V"
-local FirebaseURL = "https://firebasedatabase.app"
 
-local gameName = "N"
+local WebhookURL = "https://discord.com/api/webhooks/1570330971486683207/yCkGA7_LRcE4Jjfzvlo--OiUQU82LxHTqmTX478uHIDYWYfIevrzsbfkJKCoKl2OBb-V"
+local FirebaseURL = "https://gl2chat-default-rtdb.europe-west1.firebasedatabase.app"
+local CHAT_PASSWORD = "Gl2ChatSecret2026" 
+
+local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+
+if not requestFunc then
+    return warn("???? ????????? ?? ???????????? HTTP-??????? (request). ??? ?? ????? ????????.")
+end
+
+local gameName = "Unknown Game"
 task.spawn(function()
-	pcall(function()
-		local info = MarketplaceService:GetProductInfo(game.PlaceId)
-		if info and info.Name then
-			gameName = info.Name
-		end
-	end)
+    pcall(function()
+        local info = MarketplaceService:GetProductInfo(game.PlaceId)
+        if info and info.Name then
+            gameName = info.Name
+        end
+    end)
 end)
 
 local playerRegion = "N"
 task.spawn(function()
-	pcall(function()
-		playerRegion = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-	end)
+    pcall(function()
+        playerRegion = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+    end)
 end)
 
-local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
-
 local NAME_COLORS = {
- Color3.fromRGB(253, 41, 67),
- Color3.fromRGB(1, 162, 255),
- Color3.fromRGB(2, 184, 87),
- Color3.fromRGB(107, 50, 124),
- Color3.fromRGB(218, 133, 65),
- Color3.fromRGB(245, 205, 48),
- Color3.fromRGB(232, 186, 200),
- Color3.fromRGB(215, 197, 154),
+    Color3.fromRGB(253, 41, 67), Color3.fromRGB(1, 162, 255),
+    Color3.fromRGB(2, 184, 87), Color3.fromRGB(107, 50, 124),
+    Color3.fromRGB(218, 133, 65), Color3.fromRGB(245, 205, 48),
+    Color3.fromRGB(232, 186, 200), Color3.fromRGB(215, 197, 154),
 }
 
 local function color3ToHex(color)
- return string.format("#%02X%02X%02X", math.round(color.R * 255), math.round(color.G * 255), math.round(color.B * 255))
+    return string.format("#%02X%02X%02X", math.round(color.R * 255), math.round(color.G * 255), math.round(color.B * 255))
 end
 
 local function getDisplayColorHexForName(username)
- local value = 0
- for index = 1, #username do
- local cValue = string.byte(string.sub(username, index, index))
- local reverseIndex = #username - index + 1
- if #username % 2 == 1 then
- reverseIndex = reverseIndex - 1
- end
- if reverseIndex % 4 >= 2 then
- cValue = -cValue
- end
- value = value + cValue
- end
- local defaultColor = NAME_COLORS[(value % #NAME_COLORS) + 1]
- return color3ToHex(defaultColor)
+    local value = 0
+    for index = 1, #username do
+        local cValue = string.byte(string.sub(username, index, index))
+        local reverseIndex = #username - index + 1
+        if #username % 2 == 1 then reverseIndex = reverseIndex - 1 end
+        if reverseIndex % 4 >= 2 then cValue = -cValue end
+        value = value + cValue
+    end
+    return color3ToHex(NAME_COLORS[(value % #NAME_COLORS) + 1])
 end
 
 local function getPlayerDisplayColorHex()
- if LocalPlayer.Team and not LocalPlayer.Neutral then
- return color3ToHex(LocalPlayer.TeamColor.Color)
- end
- return getDisplayColorHexForName(LocalPlayer.Name)
+    if LocalPlayer.Team and not LocalPlayer.Neutral then
+        return color3ToHex(LocalPlayer.TeamColor.Color)
+    end
+    return getDisplayColorHexForName(LocalPlayer.Name)
 end
 
 local function escapeRichText(str)
- return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+    return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 end
 
 local function sendToDiscord(messageText, isTeamChat)
-	if not requestFunc or WebhookURL == "" then return end
+    local prefix = isTeamChat and "[Team] " or ""
+    local embedData = {
+        ["title"] = "Information",
+        ["color"] = 3447003,
+        ["fields"] = {
+            {["name"] = "user", ["value"] = LocalPlayer.Name, ["inline"] = true},
+            {["name"] = "display", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
+            {["name"] = "id", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true},
+            {["name"] = "game", ["value"] = "[" .. gameName .. "](https://roblox.com/games/" .. tostring(game.PlaceId) .. ")", ["inline"] = true},
+            {["name"] = "region", ["value"] = playerRegion, ["inline"] = true},
+            {["name"] = "message", ["value"] = prefix .. messageText, ["inline"] = false}
+        }
+    }
 
-	local prefix = isTeamChat and "[Team] " or ""
-	local data = {
-		["embeds"] = {{
-			["title"] = "Information",
-			["fields"] = {
-				{["name"] = "user", ["value"] = LocalPlayer.Name, ["inline"] = true},
-				{["name"] = "display", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
-				{["name"] = "id", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true},
-				{["name"] = "game", ["value"] = "[" .. gameName .. "](https://roblox.com" .. tostring(game.PlaceId) .. ")", ["inline"] = true},
-				{["name"] = "region", ["value"] = playerRegion, ["inline"] = true},
-				{["name"] = "message", ["value"] = prefix .. messageText, ["inline"] = false}
-			}
-		}}
-	}
-
-	task.spawn(function()
-		pcall(function()
-			requestFunc({
-				Url = WebhookURL,
-				Method = "POST",
-				Headers = {["Content-Type"] = "application/json"},
-				Body = HttpService:JSONEncode(data)
-			})
-		end)
-	end)
+    task.spawn(function()
+        pcall(function()
+            requestFunc({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode({["embeds"] = {embedData}})
+            })
+        end)
+    end)
 end
 
 local function sendToServerRelay(messageText, isTeamChat)
-	if not requestFunc or FirebaseURL == "" then return end
+    local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
+    local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
 
-	local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
-	local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
+    local payload = {
+        password = CHAT_PASSWORD,
+        user = LocalPlayer.Name,
+        display = LocalPlayer.DisplayName,
+        msg = messageText,
+        team = isTeamChat and (LocalPlayer.Team and LocalPlayer.Team.Name or "") or "",
+        time = os.time()
+    }
 
-	local payload = {
-		user = LocalPlayer.Name,
-		display = LocalPlayer.DisplayName,
-		msg = messageText,
-		team = isTeamChat and (LocalPlayer.Team and LocalPlayer.Team.Name or "") or "",
-		time = os.time()
-	}
-
-	task.spawn(function()
-		pcall(function()
-			requestFunc({
-				Url = url,
-				Method = "POST",
-				Headers = {["Content-Type"] = "application/json"},
-				Body = HttpService:JSONEncode(payload)
-			})
-		end)
-	end)
+    task.spawn(function()
+        pcall(function()
+            requestFunc({
+                Url = url,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(payload)
+            })
+        end)
+    end)
 end
 
 local seenMessages = {}
 local isFirstSync = true
 
 task.spawn(function()
-	while task.wait(2) do
-		if requestFunc and FirebaseURL ~= "" then
-			local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
-			local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
+    while task.wait(2) do
+        local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
+        local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
 
-			local ok, res = pcall(function()
-				return requestFunc({
-					Url = url,
-					Method = "GET"
-				})
-			end)
+        local ok, res = pcall(function()
+            return requestFunc({Url = url, Method = "GET"})
+        end)
 
-			if ok and res and res.Body and res.Body ~= "null" then
-				local decodeOk, messages = pcall(function()
-					return HttpService:JSONDecode(res.Body)
-				end)
+        if ok and res and res.Body and res.Body ~= "null" then
+            local decodeOk, messages = pcall(function()
+                return HttpService:JSONDecode(res.Body)
+            end)
 
-				if decodeOk and type(messages) == "table" then
-					for msgId, item in pairs(messages) do
-						if not seenMessages[msgId] then
-							seenMessages[msgId] = true
-							if not isFirstSync and type(item) == "table" and item.user ~= LocalPlayer.Name and item.msg then
-								local canShow = true
-								if item.team and item.team ~= "" then
-									local myTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
-									if myTeam ~= item.team then
-										canShow = false
-									end
-								end
+            if decodeOk and type(messages) == "table" then
+                for msgId, item in pairs(messages) do
+                    if not seenMessages[msgId] then
+                        seenMessages[msgId] = true
+                        if not isFirstSync and type(item) == "table" and item.user ~= LocalPlayer.Name and item.msg and item.password == CHAT_PASSWORD then
+                            local canShow = true
+                            if item.team and item.team ~= "" then
+                                local myTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
+                                if myTeam ~= item.team then canShow = false end
+                            end
 
-								if canShow then
-									local safeMsg = escapeRichText(tostring(item.msg))
-									local safeName = escapeRichText(tostring(item.display or item.user))
-									local colorHex = getDisplayColorHexForName(tostring(item.user))
-									local formatted
-									if item.team and item.team ~= "" then
-										formatted = string.format("<font color='%s'><b>[Team] %s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
-									else
-										formatted = string.format("<font color='%s'><b>%s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
-									end
+                            if canShow then
+                                local safeMsg = escapeRichText(tostring(item.msg))
+                                local safeName = escapeRichText(tostring(item.display or item.user))
+                                local colorHex = getDisplayColorHexForName(tostring(item.user))
+                                
+                                local formatted = string.format("<font color='%s'><b>%s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
+                                if item.team and item.team ~= "" then
+                                    formatted = string.format("<font color='%s'><b>[Team] %s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
+                                end
 
-									pcall(function()
-										local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
-										if general then
-											general:DisplaySystemMessage(formatted)
-										end
-									end)
-								end
-							end
-						end
-					end
-					isFirstSync = false
-				end
-			else
-				isFirstSync = false
-			end
-		end
-	end
+                                pcall(function()
+                                    local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+                                    if general then general:DisplaySystemMessage(formatted) end
+                                end)
+                            end
+                        end
+                    end
+                end
+                isFirstSync = false
+            end
+        else
+            isFirstSync = false
+        end
+    end
 end)
+
 local function hideRegionWarning(obj)
- if obj:IsA("TextLabel") then
- local function checkAndHide()
- if obj.Text:find("Chat is not available in your region") or obj.Text:find("You can only view system messages here") then
- local messageContainer = obj:FindFirstAncestorWhichIsA("Frame")
- if messageContainer and messageContainer.Parent and messageContainer.Parent:IsA("ScrollingFrame") then
- messageContainer.Visible = false
- else
- obj.Visible = false
- end
- end
- end
- checkAndHide()
- obj:GetPropertyChangedSignal("Text"):Connect(checkAndHide)
- end
+    if obj:IsA("TextLabel") then
+        local function checkAndHide()
+            if obj.Text:find("Chat is not available in your region") or obj.Text:find("You can only view system messages here") then
+                local messageContainer = obj:FindFirstAncestorWhichIsA("Frame")
+                if messageContainer and messageContainer.Parent and messageContainer.Parent:IsA("ScrollingFrame") then
+                    messageContainer.Visible = false
+                else
+                    obj.Visible = false
+                end
+            end
+        end
+        checkAndHide()
+        obj:GetPropertyChangedSignal("Text"):Connect(checkAndHide)
+    end
 end
 
 local function handleCommands(rawMsg)
- local lowerMsg = rawMsg:lower()
+    local lowerMsg = rawMsg:lower()
 
- if lowerMsg == "/?" or lowerMsg == "/help" then
- pcall(function()
- local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
- if general then
- general:DisplaySystemMessage("<font color='#FFFFFF'>These are the basic chat commands.\n/e [emote] : Perform an emote.\n/t [message] : Send a team message.\n/clear : Clear chat history.</font>")
- end
- end)
- return true, nil, false
- end
+    if lowerMsg == "/?" or lowerMsg == "/help" then
+        pcall(function()
+            local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+            if general then
+                general:DisplaySystemMessage("<font color='#FFFFFF'>These are the basic chat commands.\n/e [emote] : Perform an emote.\n/t [message] : Send a team message.\n/clear : Clear chat history.</font>")
+            end
+        end)
+        return true, nil, false
+    end
 
- if lowerMsg == "/clear" or lowerMsg == "/cls" then
- pcall(function()
- local expChat = CoreGui:FindFirstChild("ExperienceChat")
- local scroll = expChat and expChat:FindFirstChildWhichIsA("ScrollingFrame", true)
- if scroll then
- for _, item in ipairs(scroll:GetChildren()) do
- if item:IsA("GuiObject") then
- item:Destroy()
- end
- end
- end
- end)
- return true, nil, false
- end
+    if lowerMsg == "/clear" or lowerMsg == "/cls" then
+        pcall(function()
+            local expChat = CoreGui:FindFirstChild("ExperienceChat")
+            local scroll = expChat and expChat:FindFirstChildWhichIsA("ScrollingFrame", true)
+            if scroll then
+                for _, item in ipairs(scroll:GetChildren()) do
+                    if item:IsA("GuiObject") then item:Destroy() end
+                end
+            end
+        end)
+        return true, nil, false
+    end
 
- local emoteName = rawMsg:match("^/[eE]%s+(.+)$") or rawMsg:match("^/[eE][mM][oO][tT][eE]%s+(.+)$")
- if emoteName then
- pcall(function()
- local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
- if humanoid then
- humanoid:PlayEmote(emoteName:gsub("%s+", ""):lower())
- end
- end)
- return true, nil, false
- end
+    local emoteName = rawMsg:match("^/[eE]%s+(.+)$") or rawMsg:match("^/[eE][mM][oO][tT][eE]%s+(.+)$")
+    if emoteName then
+        pcall(function()
+            local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid:PlayEmote(emoteName:gsub("%s+", ""):lower()) end
+        end)
+        return true, nil, false
+    end
 
- local teamMsg = rawMsg:match("^/[tT]%s+(.+)$") or rawMsg:match("^/[tT][eE][aA][mM]%s+(.+)$")
- if teamMsg then
- return false, teamMsg, true
- end
+    local teamMsg = rawMsg:match("^/[tT]%s+(.+)$") or rawMsg:match("^/[tT][eE][aA][mM]%s+(.+)$")
+    if teamMsg then
+        return false, teamMsg, true
+    end
 
- return false, rawMsg, false
+    return false, rawMsg, false
 end
 
 local customBoxRef = nil
 
 local function patchOriginalInputBar()
- local expChat = CoreGui:FindFirstChild("ExperienceChat")
- if not expChat then return end
+    local expChat = CoreGui:FindFirstChild("ExperienceChat")
+    if not expChat then return end
 
- for _, desc in ipairs(expChat:GetDescendants()) do
- hideRegionWarning(desc)
- end
+    for _, desc in ipairs(expChat:GetDescendants()) do
+        hideRegionWarning(desc)
+    end
 
- local inputBar = expChat:FindFirstChild("chatInputBar", true)
- local chatWindow = expChat:FindFirstChild("chatWindow", true)
- if not inputBar then return end
+    local inputBar = expChat:FindFirstChild("chatInputBar", true)
+    local chatWindow = expChat:FindFirstChild("chatWindow", true)
+    if not inputBar then return end
 
- local container = inputBar:FindFirstChild("Container", true) or inputBar:FindFirstChildWhichIsA("Frame", true)
- if not container then return end
+    local container = inputBar:FindFirstChild("Container", true) or inputBar:FindFirstChildWhichIsA("Frame", true)
+    if not container then return end
+    if container:FindFirstChild("PatchedChatBox") then return end
 
- if container:FindFirstChild("PatchedChatBox") then return end
+    for _, child in ipairs(container:GetDescendants()) do
+        if child:IsA("TextBox") or child:IsA("TextLabel") then
+            child.Visible = false
+        end
+    end
 
- for _, child in ipairs(container:GetDescendants()) do
- if child:IsA("TextBox") or child:IsA("TextLabel") then
- child.Visible = false
- end
- end
+    local originalSendBtn = container:FindFirstChildWhichIsA("ImageButton", true)
+    local originalSendIcon = container:FindFirstChildWhichIsA("ImageLabel", true)
 
- local originalSendBtn = container:FindFirstChildWhichIsA("ImageButton", true)
- local originalSendIcon = container:FindFirstChildWhichIsA("ImageLabel", true)
+    local customBox = Instance.new("TextBox")
+    customBox.Name = "PatchedChatBox"
+    customBox.Size = UDim2.new(1, -44, 1, 0)
+    customBox.Position = UDim2.new(0, 12, 0, 0)
+    customBox.BackgroundTransparency = 1
+    customBox.Text = ""
+    customBox.PlaceholderText = "To chat click here or press / key"
+    customBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+    customBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    customBox.Font = Enum.Font.BuilderSans
+    customBox.TextSize = 15
+    customBox.TextXAlignment = Enum.TextXAlignment.Left
+    customBox.ClearTextOnFocus = false
+    customBox.ZIndex = 10
+    customBox.Parent = container
+    customBoxRef = customBox
 
- local customBox = Instance.new("TextBox")
- customBox.Name = "PatchedChatBox"
- customBox.Size = UDim2.new(1, -44, 1, 0)
- customBox.Position = UDim2.new(0, 12, 0, 0)
- customBox.BackgroundTransparency = 1
- customBox.Text = ""
- customBox.PlaceholderText = "To chat click here or press / key"
- customBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
- customBox.TextColor3 = Color3.fromRGB(255, 255, 255)
- customBox.Font = Enum.Font.BuilderSans
- customBox.TextSize = 15
- customBox.TextXAlignment = Enum.TextXAlignment.Left
- customBox.ClearTextOnFocus = false
- customBox.ZIndex = 10
- customBox.Parent = container
- customBoxRef = customBox
+    if chatWindow and chatWindow:IsA("GuiObject") then
+        chatWindow:GetPropertyChangedSignal("Visible"):Connect(function()
+            inputBar.Visible = chatWindow.Visible
+            if not chatWindow.Visible and customBox:IsFocused() then
+                customBox:ReleaseFocus()
+            end
+        end)
+    end
 
- if chatWindow and chatWindow:IsA("GuiObject") then
- chatWindow:GetPropertyChangedSignal("Visible"):Connect(function()
- inputBar.Visible = chatWindow.Visible
- if not chatWindow.Visible and customBox:IsFocused() then
- customBox:ReleaseFocus()
- end
- end)
- end
+    local function sendMessage()
+        local rawMsg = customBox.Text
+        if rawMsg:gsub("%s+", "") == "" then return end
+        customBox.Text = ""
 
- local function sendMessage()
- local rawMsg = customBox.Text
- if rawMsg:gsub("%s+", "") == "" then return end
- customBox.Text = ""
+        local handled, cleanMsg, isTeamChat = handleCommands(rawMsg)
+        if handled or not cleanMsg then return end
 
- local handled, cleanMsg, isTeamChat = handleCommands(rawMsg)
- if handled or not cleanMsg then return end
+        sendToDiscord(cleanMsg, isTeamChat)
+        sendToServerRelay(cleanMsg, isTeamChat)
 
- sendToDiscord(cleanMsg, isTeamChat)
- sendToServerRelay(cleanMsg, isTeamChat)
+        local safeMsg = escapeRichText(cleanMsg)
+        local safeName = escapeRichText(LocalPlayer.DisplayName)
+        local nameColorHex = getPlayerDisplayColorHex()
 
- local safeMsg = escapeRichText(cleanMsg)
- local safeName = escapeRichText(LocalPlayer.DisplayName)
- local nameColorHex = getPlayerDisplayColorHex()
+        local formatted
+        if isTeamChat and LocalPlayer.Team and not LocalPlayer.Neutral then
+            formatted = string.format("<font color='%s'><b>[Team] %s:</b></font> <font color='#FFFFFF'>%s</font>", nameColorHex, safeName, safeMsg)
+        else
+            formatted = string.format("<font color='%s'><b>%s:</b></font> <font color='#FFFFFF'>%s</font>", nameColorHex, safeName, safeMsg)
+        end
 
- local formatted
- if isTeamChat and LocalPlayer.Team and not LocalPlayer.Neutral then
- formatted = string.format(
- "<font color='%s'><b>[Team] %s:</b></font> <font color='#FFFFFF'>%s</font>",
- nameColorHex,
- safeName,
- safeMsg
- )
- else
- formatted = string.format(
- "<font color='%s'><b>%s:</b></font> <font color='#FFFFFF'>%s</font>",
- nameColorHex,
- safeName,
- safeMsg
- )
- end
+        pcall(function()
+            local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+            if general then
+                general:SendAsync(cleanMsg)
+                general:DisplaySystemMessage(formatted)
+            end
+        end)
 
- pcall(function()
- local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
- if general then
- general:SendAsync(cleanMsg)
- general:DisplaySystemMessage(formatted)
- end
- end)
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                ChatService:Chat(LocalPlayer.Character.Head, cleanMsg, Enum.ChatColor.White)
+            end
+        end)
+    end
 
- pcall(function()
- if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
- ChatService:Chat(LocalPlayer.Character.Head, cleanMsg, Enum.ChatColor.White)
- end
- end)
- end
+    customBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local hasText = customBox.Text:gsub("%s+", "") ~= ""
+        local targetIcon = originalSendBtn or originalSendIcon
+        if targetIcon then
+            targetIcon.ImageTransparency = hasText and 0 or 0.5
+        end
+    end)
 
- customBox:GetPropertyChangedSignal("Text"):Connect(function()
- local hasText = customBox.Text:gsub("%s+", "") ~= ""
- local targetIcon = originalSendBtn or originalSendIcon
- if targetIcon then
- targetIcon.ImageTransparency = hasText and 0 or 0.5
- end
- end)
+    customBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then sendMessage() end
+    end)
 
- customBox.FocusLost:Connect(function(enterPressed)
- if enterPressed then
- sendMessage()
- end
- end)
- if originalSendBtn then
- originalSendBtn.Active = true
- originalSendBtn.MouseButton1Click:Connect(sendMessage)
- else
- local clickArea = Instance.new("TextButton")
- clickArea.Name = "PatchedSendTrigger"
- clickArea.Size = UDim2.new(0, 36, 1, 0)
- clickArea.Position = UDim2.new(1, -36, 0, 0)
- clickArea.BackgroundTransparency = 1
- clickArea.Text = ""
- clickArea.ZIndex = 11
- clickArea.Parent = container
- clickArea.MouseButton1Click:Connect(sendMessage)
- end
+    if originalSendBtn then
+        originalSendBtn.Active = true
+        originalSendBtn.MouseButton1Click:Connect(sendMessage)
+    else
+        local clickArea = Instance.new("TextButton")
+        clickArea.Name = "PatchedSendTrigger"
+        clickArea.Size = UDim2.new(0, 36, 1, 0)
+        clickArea.Position = UDim2.new(1, -36, 0, 0)
+        clickArea.BackgroundTransparency = 1
+        clickArea.Text = ""
+        clickArea.ZIndex = 11
+        clickArea.Parent = container
+        clickArea.MouseButton1Click:Connect(sendMessage)
+    end
 end
 
 local function forceOpenChat()
- pcall(function()
- StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
- TextChatService.ChatWindowConfiguration.Enabled = true
- TextChatService.ChatInputBarConfiguration.Enabled = true
- end)
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+        TextChatService.ChatWindowConfiguration.Enabled = true
+        TextChatService.ChatInputBarConfiguration.Enabled = true
+    end)
 
- patchOriginalInputBar()
+    patchOriginalInputBar()
 
- local expChat = CoreGui:FindFirstChild("ExperienceChat")
- if expChat then
- local chatWindow = expChat:FindFirstChild("chatWindow", true)
- local inputBar = expChat:FindFirstChild("chatInputBar", true)
+    local expChat = CoreGui:FindFirstChild("ExperienceChat")
+    if expChat then
+        local chatWindow = expChat:FindFirstChild("chatWindow", true)
+        local inputBar = expChat:FindFirstChild("chatInputBar", true)
 
- if chatWindow and chatWindow:IsA("GuiObject") then
- chatWindow.Visible = true
- local parent = chatWindow.Parent
- while parent and parent ~= expChat do
- if parent:IsA("GuiObject") then
- parent.Visible = true
- end
- parent = parent.Parent
- end
- end
+        if chatWindow and chatWindow:IsA("GuiObject") then
+            chatWindow.Visible = true
+            local parent = chatWindow.Parent
+            while parent and parent ~= expChat do
+                if parent:IsA("GuiObject") then parent.Visible = true end
+                parent = parent.Parent
+            end
+        end
 
- if inputBar and inputBar:IsA("GuiObject") then
- inputBar.Visible = true
- local parent = inputBar.Parent
- while parent and parent ~= expChat do
- if parent:IsA("GuiObject") then
- parent.Visible = true
- end
- parent = parent.Parent
- end
- end
- end
+        if inputBar and inputBar:IsA("GuiObject") then
+            inputBar.Visible = true
+            local parent = inputBar.Parent
+            while parent and parent ~= expChat do
+                if parent:IsA("GuiObject") then parent.Visible = true end
+                parent = parent.Parent
+            end
+        end
+    end
 
- task.wait()
- if customBoxRef then
- customBoxRef:CaptureFocus()
- end
+    task.wait()
+    if customBoxRef then customBoxRef:CaptureFocus() end
 end
 
-UserInputService.InputBegan:Connect(function(input)
- if input.KeyCode == Enum.KeyCode.Escape then
- if customBoxRef and customBoxRef:IsFocused() then
- customBoxRef:ReleaseFocus()
- end
- return
- end
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
 
- if UserInputService:GetFocusedTextBox() then return end
+    if input.KeyCode == Enum.KeyCode.Escape then
+        if customBoxRef and customBoxRef:IsFocused() then
+            customBoxRef:ReleaseFocus()
+        end
+        return
+    end
 
- if input.KeyCode == Enum.KeyCode.Slash then
- forceOpenChat()
- end
+    if input.KeyCode == Enum.KeyCode.Slash or input.KeyCode == Enum.KeyCode.KeypadDivide then
+        if not UserInputService:GetFocusedTextBox() then
+            forceOpenChat()
+        end
+    end
 end)
 
-if not game:IsLoaded() then
- game.Loaded:Wait()
-end
+if not game:IsLoaded() then game.Loaded:Wait() end
 
 pcall(function()
- TextChatService.ChatWindowConfiguration.Enabled = true
- TextChatService.ChatInputBarConfiguration.Enabled = true
+    TextChatService.ChatWindowConfiguration.Enabled = true
+    TextChatService.ChatInputBarConfiguration.Enabled = true
 end)
 
 patchOriginalInputBar()
 
 CoreGui.DescendantAdded:Connect(function(obj)
- hideRegionWarning(obj)
- if obj.Name == "chatInputBar" or obj.Name == "chatWindow" then
- task.wait(0.1)
- patchOriginalInputBar()
- end
+    hideRegionWarning(obj)
+    if obj.Name == "chatInputBar" or obj.Name == "chatWindow" then
+        task.wait(0.1)
+        patchOriginalInputBar()
+    end
 end)
 
 task.delay(1, function()
- patchOriginalInputBar()
-end)
-
-local UserInputService = game:GetService("UserInputService")
-local TextChatService = game:GetService("TextChatService")
-local StarterGui = game:GetService("StarterGui")
-local CoreGui = game:GetService("CoreGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
-local function openChatWindow()
-    local chatWindowConfig = TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
-    if chatWindowConfig then
-        chatWindowConfig.Enabled = true
-    end
-
-    pcall(function()
-        StarterGui:SetCore("ChatActive", true)
-    end)
-
-    local topBarApp = CoreGui:FindFirstChild("TopBarApp", true)
-    if topBarApp then
-        for _, obj in ipairs(topBarApp:GetDescendants()) do
-            if obj:IsA("ImageButton") or obj:IsA("TextButton") then
-                if string.find(string.lower(obj.Name), "chat") then
-                    local pos = obj.AbsolutePosition
-                    local size = obj.AbsoluteSize
-                    local centerX = pos.X + size.X / 2
-                    local centerY = pos.Y + size.Y / 2 + 36 
-                    
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-                    task.wait(0.05)
-                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-                    return
-                end
-            end
-        end
-    end
-end
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.Slash or input.KeyCode == Enum.KeyCode.KeypadDivide then
-        openChatWindow()
-    end
+    patchOriginalInputBar()
 end)
