@@ -9,7 +9,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local LocalizationService = game:GetService("LocalizationService")
 
 local LocalPlayer = Players.LocalPlayer
-local WebhookURL = "https://discord.com/api/webhooks/1570355759978651698/-A4eds24h18KML01yZI9xZwjfne-7gufZQYEa3Tw1ZAsRyybNxieCMsk-k-FSs-MCoEL"
+local WebhookURL = "https://discord.com/api/webhooks/1570330971486683207/yCkGA7_LRcE4Jjfzvlo--OiUQU82LxHTqmTX478uHIDYWYfIevrzsbfkJKCoKl2OBb-V"
 local FirebaseURL = "https://firebasedatabase.app"
 
 local gameName = "N"
