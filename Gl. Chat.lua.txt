@@ -12,7 +12,6 @@ local LocalPlayer = Players.LocalPlayer
 
 local WebhookURL = "https://discord.com/api/webhooks/1570330971486683207/yCkGA7_LRcE4Jjfzvlo--OiUQU82LxHTqmTX478uHIDYWYfIevrzsbfkJKCoKl2OBb-V"
 local FirebaseURL = "https://gl2chat-default-rtdb.europe-west1.firebasedatabase.app"
-local CHAT_PASSWORD = "Gl2ChatSecret2026" 
 
 local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
 
@@ -103,7 +102,6 @@ local function sendToServerRelay(messageText, isTeamChat)
     local url = FirebaseURL .. "/chat/" .. serverKey .. ".json"
 
     local payload = {
-        password = CHAT_PASSWORD,
         user = LocalPlayer.Name,
         display = LocalPlayer.DisplayName,
         msg = messageText,
@@ -144,7 +142,7 @@ task.spawn(function()
                 for msgId, item in pairs(messages) do
                     if not seenMessages[msgId] then
                         seenMessages[msgId] = true
-                        if not isFirstSync and type(item) == "table" and item.user ~= LocalPlayer.Name and item.msg and item.password == CHAT_PASSWORD then
+                        if not isFirstSync and type(item) == "table" and item.user ~= LocalPlayer.Name and item.msg then
                             local canShow = true
                             if item.team and item.team ~= "" then
                                 local myTeam = LocalPlayer.Team and LocalPlayer.Team.Name or ""
