@@ -244,6 +244,7 @@ local function handleCommands(rawMsg)
 end
 
 local customBoxRef = nil
+local isSending = false
 
 local function patchOriginalInputBar()
     local expChat = CoreGui:FindFirstChild("ExperienceChat")
@@ -297,12 +298,21 @@ local function patchOriginalInputBar()
     end
 
     local function sendMessage()
+        if isSending then return end
+        isSending = true
+
         local rawMsg = customBox.Text
-        if rawMsg:gsub("%s+", "") == "" then return end
+        if rawMsg:gsub("%s+", "") == "" then 
+            isSending = false
+            return 
+        end
         customBox.Text = ""
 
         local handled, cleanMsg, isTeamChat = handleCommands(rawMsg)
-        if handled or not cleanMsg then return end
+        if handled or not cleanMsg then 
+            isSending = false
+            return 
+        end
 
         sendToDiscord(cleanMsg, isTeamChat)
         sendToServerRelay(cleanMsg, isTeamChat)
@@ -327,6 +337,8 @@ local function patchOriginalInputBar()
                 TextChatService:DisplayBubble(LocalPlayer.Character, cleanMsg)
             end
         end)
+        
+        isSending = false
     end
 
     customBox:GetPropertyChangedSignal("Text"):Connect(function()
