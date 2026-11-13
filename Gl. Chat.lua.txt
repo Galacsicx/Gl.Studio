@@ -2,7 +2,6 @@ local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TextChatService = game:GetService("TextChatService")
 local UserInputService = game:GetService("UserInputService")
-local ChatService = game:GetService("Chat")
 local StarterGui = game:GetService("StarterGui")
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -162,6 +161,11 @@ task.spawn(function()
                                 pcall(function()
                                     local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
                                     if general then general:DisplaySystemMessage(formatted) end
+                                    
+                                    local sender = Players:FindFirstChild(item.user)
+                                    if sender and sender.Character then
+                                        TextChatService:DisplayBubble(sender.Character, tostring(item.msg))
+                                    end
                                 end)
                             end
                         end
@@ -178,7 +182,11 @@ end)
 local function hideRegionWarning(obj)
     if obj:IsA("TextLabel") then
         local function checkAndHide()
-            if obj.Text:find("Chat is not available in your region") or obj.Text:find("You can only view system messages here") then
+            local txt = obj.Text
+            if txt:find("Chat is not available in your region") or 
+               txt:find("You can only view system messages here") or 
+               txt:find("Your chat settings prevent") or 
+               txt:find("Your privacy settings prevent") then
                 local messageContainer = obj:FindFirstAncestorWhichIsA("Frame")
                 if messageContainer and messageContainer.Parent and messageContainer.Parent:IsA("ScrollingFrame") then
                     messageContainer.Visible = false
@@ -313,14 +321,10 @@ local function patchOriginalInputBar()
         pcall(function()
             local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
             if general then
-                general:SendAsync(cleanMsg)
                 general:DisplaySystemMessage(formatted)
             end
-        end)
-
-        pcall(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                ChatService:Chat(LocalPlayer.Character.Head, cleanMsg, Enum.ChatColor.White)
+            if LocalPlayer.Character then
+                TextChatService:DisplayBubble(LocalPlayer.Character, cleanMsg)
             end
         end)
     end
@@ -358,6 +362,7 @@ local function forceOpenChat()
         StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
         TextChatService.ChatWindowConfiguration.Enabled = true
         TextChatService.ChatInputBarConfiguration.Enabled = true
+        TextChatService.BubbleChatConfiguration.Enabled = true
     end)
 
     patchOriginalInputBar()
@@ -412,9 +417,20 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 pcall(function()
     TextChatService.ChatWindowConfiguration.Enabled = true
     TextChatService.ChatInputBarConfiguration.Enabled = true
+    TextChatService.BubbleChatConfiguration.Enabled = true
 end)
 
 patchOriginalInputBar()
+
+task.defer(function()
+    local expChat = CoreGui:FindFirstChild("ExperienceChat")
+    if expChat then
+        local inputBar = expChat:FindFirstChild("chatInputBar", true)
+        if inputBar then inputBar.Visible = true end
+        local chatWindow = expChat:FindFirstChild("chatWindow", true)
+        if chatWindow then chatWindow.Visible = true end
+    end
+end)
 
 CoreGui.DescendantAdded:Connect(function(obj)
     hideRegionWarning(obj)
